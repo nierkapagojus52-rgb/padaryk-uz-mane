@@ -13,23 +13,22 @@ tasks=tasks.map(t=>({...t,notified:!!t.notified}));let activeId=null, voices=[];
 const save=()=>localStorage.setItem(KEY,JSON.stringify(tasks)),pad=n=>String(n).padStart(2,'0');
 const localValue=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 function parseSpeech(raw){
- const s=raw.toLocaleLowerCase('lt-LT'),now=new Date(),d=new Date(now);
+ const s=raw.toLocaleLowerCase('lt-LT').replace(/[,!?]/g,' '),now=new Date(),d=new Date(now);
  let found=false;
- if(/\bporyt\b/.test(s)){d.setDate(d.getDate()+2);found=true}
- else if(/\brytoj\b/.test(s)){d.setDate(d.getDate()+1);found=true}
- else if(/\bšiandien\b|\bsiandien\b/.test(s)){found=true}
+ if(/poryt/.test(s)){d.setDate(d.getDate()+2);found=true}
+ else if(/rytoj/.test(s)){d.setDate(d.getDate()+1);found=true}
+ else if(/šiandien|siandien/.test(s)){found=true}
  else{
  const days=['sekmadien','pirmadien','antradien','trečiadien','ketvirtadien','penktadien','šeštadien'];
  const match=days.findIndex(x=>s.includes(x));
  if(match>=0){let diff=(match-d.getDay()+7)%7;if(diff===0)diff=7;d.setDate(d.getDate()+diff);found=true}
  }
- const tm=s.match(/\b(?:apie\s*)?([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*(?:val(?:and[ąa]|\.)?|ryto|vakaro|dienos)\b/i)
- ||s.match(/\b(?:apie\s*)?([01]?\d|2[0-3])[:.]([0-5]\d)\b/);
- if(!tm||!found)return '';
- let h=Number(tm[1]),minute=Number(tm[2]||0);
- const context=s.slice(tm.index,tm.index+35);
- if(/vakaro/.test(context)&&h<12)h+=12;
- if(/dienos/.test(context)&&h<12)h+=12;
+ // Priima „18 valandą“, „18 val.“, „18:00“, „18 00“, „9 ryto“ ir „šeštą vakaro“.
+ const tm=s.match(/(?:^|\s)(?:apie\s*)?([01]?\d|2[0-3])(?:[:.]([0-5]\d)|\s+([0-5]\d))?\s*(?:val(?:and(?:ą|a|os|ų)?)?\.?|ryto|vakaro|dienos|h)?(?=\s|$|[.,])/i);
+ if(!tm||!found||!/(?:val|ryto|vakaro|dienos|\d{1,2}[:.]\d{2})/.test(s.slice(tm.index,tm.index+25)))return '';
+ let h=Number(tm[1]),minute=Number(tm[2]||tm[3]||0);
+ const context=s.slice(tm.index,tm.index+40);
+ if(/vakaro|dienos/.test(context)&&h<12)h+=12;
  d.setHours(h,minute,0,0);return localValue(d);
 }
 function render(){
