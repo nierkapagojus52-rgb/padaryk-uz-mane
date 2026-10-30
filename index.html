@@ -3,9 +3,9 @@
 :root{font-family:system-ui,Arial;color:#173c36;background:#f0f6f3}*{box-sizing:border-box}body{margin:0}.wrap{max-width:680px;margin:auto;padding:16px}header{background:linear-gradient(125deg,#06463e,#12927f);color:white;padding:25px;border-radius:24px}h1{font-size:29px;margin:0}h2{font-size:21px;margin:0 0 12px}.card{background:white;border-radius:22px;padding:20px;margin-top:15px;box-shadow:0 4px 18px #123b3010}button,input,textarea,select{font:inherit}textarea,input[type=datetime-local],select{width:100%;border:1px solid #c8dcd4;border-radius:12px;padding:12px;background:white}textarea{min-height:85px}button{cursor:pointer;border:0;border-radius:12px;padding:12px 16px}.primary{background:#076658;color:white;font-weight:700}.voice{width:100%;padding:17px;font-size:19px;margin:12px 0}.secondary{background:#e4f2ec;color:#075447}.danger{background:#ffe9e7;color:#a42e25}.row{display:flex;gap:9px;flex-wrap:wrap}.row>*{flex:1}label{display:block;margin:12px 0 5px;font-weight:600}.hint,.status,footer{color:#58766e;font-size:14px}.status{min-height:20px}.task{border-top:1px solid #e3ede8;padding:14px 0;display:flex;gap:10px;align-items:flex-start}.task>div{flex:1;overflow-wrap:anywhere}.task small{display:block;color:#5b7770;margin-top:5px}.task.done{opacity:.55}.task.done b{text-decoration:line-through}footer{text-align:center;padding:24px 0}#alarm{position:fixed;inset:0;background:#001c17d9;color:white;display:none;place-items:center;padding:24px;z-index:5}#alarm .panel{background:white;color:#143a34;border-radius:22px;padding:28px;max-width:440px;width:100%;text-align:center}#alarm h2{font-size:25px}#alarm .row{margin-top:20px}
 </style></head><body><main class="wrap"><header><h1>✨ PADARYK UŽ MANE</h1><p>Tavo lietuviškai kalbantis kasdienių darbų pagalbininkas 🎤</p><strong id="count"></strong></header>
 <section class="card"><h2>🎤 Pasakyk užduotį</h2><button class="primary voice" id="voice">🎤 Kalbėti lietuviškai</button><p class="hint">Pavyzdys: „Rytoj devintą valandą plauti automobilį“. Laiką atpažįsta ir iš žodžių.</p><textarea id="task" placeholder="Arba įrašyk užduotį..."></textarea><label for="when">Data ir laikas</label><input type="datetime-local" id="when"><p class="status" id="status"></p><button class="primary" id="add">+ Pridėti užduotį</button></section>
-<section class="card"><h2>🔊 Balsiniai priminimai</h2><label for="voiceChoice">Pasirink balsą</label><select id="voiceChoice"><option value="">Telefono numatytasis balsas</option></select><div class="row" style="margin-top:12px"><button class="secondary" id="testVoice">▶ Išbandyti balsą</button><button class="secondary" id="permission">🔔 Įjungti pranešimus</button></div><p class="hint">Balsų pasirinkimas priklauso nuo telefone įdiegtų lietuviškų balsų. Šioje internetinėje versijoje balsas patikimai veikia tik kol puslapis atidarytas. Uždarę programėlę galite negauti priminimo – tam dar kursime „Android“ versiją.</p></section>
+<section class="card"><h2>🔊 Balsiniai priminimai</h2><label for="voiceChoice">Pasirink balsą</label><select id="voiceChoice"><option value="">Telefono numatytasis balsas</option></select><div class="row" style="margin-top:12px"><button class="secondary" id="testVoice">▶ Išbandyti balsą</button><button class="secondary" id="permission">🔔 Įjungti pranešimus</button></div><p class="hint">Atidaręs programėlę vieną kartą paspausk „Įjungti garsą“, kad naršyklė leistų kalbėti. Net ir tada garsas gali būti blokuojamas, ypač užrakinus telefoną.</p><button class="primary" id="unlockVoice">🔊 Įjungti garsą</button><p class="hint">Balsų pasirinkimas priklauso nuo telefone įdiegtų lietuviškų balsų. Šioje internetinėje versijoje balsas patikimai veikia tik kol puslapis atidarytas. Uždarę programėlę galite negauti priminimo – tam dar kursime „Android“ versiją.</p></section>
 <section class="card"><h2>📋 Mano užduotys</h2><div id="tasks"></div><button class="danger" id="clearDone">Ištrinti atliktas</button></section><footer>Užduotys saugomos šiame telefone, šioje naršyklėje. Kitame telefone jos automatiškai neatsiras.</footer></main>
-<div id="alarm"><div class="panel"><h2>🔔 Laikas atlikti užduotį!</h2><p id="alarmText"></p><div class="row"><button class="secondary" id="snooze">Priminti po 10 min.</button><button class="primary" id="dismiss">Supratau</button></div></div></div>
+<div id="alarm"><div class="panel"><h2>🔔 Laikas atlikti užduotį!</h2><p id="alarmText"></p><div class="row"><button class="secondary" id="repeatVoice">🔊 Pakartoti balsu</button></div><div class="row"><button class="secondary" id="snooze">Priminti po 10 min.</button><button class="primary" id="dismiss">Supratau</button></div></div></div>
 <script>
 const $=id=>document.getElementById(id), KEY='padaryk-uz-mane-tasks-v2', PREF='padaryk-uz-mane-voice';
 let tasks=[];try{tasks=JSON.parse(localStorage.getItem(KEY)||'[]');if(!Array.isArray(tasks))tasks=[]}catch{tasks=[]}
@@ -82,15 +82,38 @@ function loadVoices(){
 }
 if('speechSynthesis' in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices}
 $('voiceChoice').onchange=()=>localStorage.setItem(PREF,$('voiceChoice').value);
-function speak(message){if(!('speechSynthesis' in window))return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(message);u.lang='lt-LT';u.rate=.93;const v=voices[Number($('voiceChoice').value)];if($('voiceChoice').value!==''&&v)u.voice=v;speechSynthesis.speak(u)}catch{}}
-$('testVoice').onclick=()=>speak('Labas! Aš esu Padaryk už mane. Priminsiu tavo svarbius darbus.');
+let speechEnabled=false, currentUtterance=null;
+function speak(message,onResult){
+ if(!('speechSynthesis' in window)){if(onResult)onResult(false);return}
+ try{
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(message);
+  currentUtterance=u;u.lang='lt-LT';u.rate=.93;u.volume=1;
+  const v=voices[Number($('voiceChoice').value)];
+  if($('voiceChoice').value!==''&&v)u.voice=v;
+  let started=false;
+  u.onstart=()=>{started=true;speechEnabled=true;if(onResult)onResult(true)};
+  u.onerror=()=>{if(!started&&onResult)onResult(false)};
+  speechSynthesis.speak(u);
+  // Kai kurios Android naršyklės sustabdo kalbą po ilgesnio laukimo.
+  if(speechSynthesis.paused)speechSynthesis.resume();
+ }catch(e){if(onResult)onResult(false)}
+}
+function testSound(){speak('Labas! Garsas įjungtas. Priminsiu tavo svarbius darbus.',ok=>{
+ $('status').textContent=ok?'✅ Balsas veikia.':'⚠️ Naršyklė neleido automatiškai paleisti balso.';
+})}
+$('testVoice').onclick=testSound;
+$('unlockVoice').onclick=testSound;
+$('repeatVoice').onclick=()=>{const t=tasks.find(x=>x.id===activeId);if(t)speak('Primenu. '+t.text)};
+// Atlikus naudotojo veiksmą naršyklė gali leisti vėlesnį kalbėjimą.
+$('add').addEventListener('click',()=>{if(!speechEnabled&&'speechSynthesis' in window){speak('Priminimas išsaugotas.')}});
 $('permission').onclick=async()=>{if(!('Notification' in window)){$('status').textContent='Ši naršyklė pranešimų nepalaiko.';return}const p=await Notification.requestPermission();$('status').textContent=p==='granted'?'Pranešimai įjungti. Puslapis turi būti atidarytas.':'Pranešimai neįjungti.'};
 function checkReminders(){if(activeId!==null)return;const now=Date.now();const t=tasks.find(t=>!t.done&&!t.notified&&t.when&&new Date(t.when).getTime()<=now&&new Date(t.when).getTime()>now-86400000);
-if(!t)return;t.notified=true;activeId=t.id;save();$('alarmText').textContent=t.text;$('alarm').style.display='grid';speak('Primenu. '+t.text);
+if(!t)return;t.notified=true;activeId=t.id;save();$('alarmText').textContent=t.text;$('alarm').style.display='grid';speak('Primenu. '+t.text,ok=>{if(!ok)$('alarmText').textContent=t.text+' — garsas užblokuotas. Spausk „Pakartoti balsu“.'});
 if('Notification' in window&&Notification.permission==='granted'){try{new Notification('PADARYK UŽ MANE',{body:t.text})}catch{}}
 }
 $('dismiss').onclick=()=>{activeId=null;$('alarm').style.display='none';if('speechSynthesis' in window)speechSynthesis.cancel();checkReminders()};
-$('snooze').onclick=()=>{const t=tasks.find(x=>x.id===activeId);if(t){t.when=localValue(new Date(Date.now()+10*60000));t.notified=false;save();render()}$('dismiss').click()};
+$('snooze').onclick=()=>{const t=tasks.find(x=>x.id===activeId);if(t){t.when=localValue(new Date(Date.now()+10*60000));t.notified=false;save();render()}activeId=null;$('alarm').style.display='none';if('speechSynthesis' in window)speechSynthesis.cancel();checkReminders()};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkReminders()});
-setInterval(checkReminders,10000);render();checkReminders();
+setInterval(checkReminders,2000);render();checkReminders();
 </script></body></html>
