@@ -25,7 +25,7 @@ function parseSpeech(raw){
  }
  // Priima „18 valandą“, „18 val.“, „18:00“, „18 00“, „9 ryto“ ir „šeštą vakaro“.
  const tm=s.match(/(?:^|\s)(?:apie\s*)?([01]?\d|2[0-3])(?:[:.]([0-5]\d)|\s+([0-5]\d))?\s*(?:val(?:and(?:ą|a|os|ų)?)?\.?|ryto|vakaro|dienos|h)?(?=\s|$|[.,])/i);
- if(!tm||!found||!/(?:val|ryto|vakaro|dienos|\d{1,2}[:.]\d{2})/.test(s.slice(tm.index,tm.index+25)))return '';
+ if(!tm||!found)return ''; // Laikas gali būti pasakytas be žodžio „valandą“
  let h=Number(tm[1]),minute=Number(tm[2]||tm[3]||0);
  const context=s.slice(tm.index,tm.index+40);
  if(/vakaro|dienos/.test(context)&&h<12)h+=12;
