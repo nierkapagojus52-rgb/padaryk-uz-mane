@@ -2,7 +2,7 @@
 <style>
 :root{font-family:system-ui,Arial;color:#173c36;background:#f0f6f3}*{box-sizing:border-box}body{margin:0}.wrap{max-width:680px;margin:auto;padding:16px}header{background:linear-gradient(125deg,#06463e,#12927f);color:white;padding:25px;border-radius:24px}h1{font-size:29px;margin:0}h2{font-size:21px;margin:0 0 12px}.card{background:white;border-radius:22px;padding:20px;margin-top:15px;box-shadow:0 4px 18px #123b3010}button,input,textarea,select{font:inherit}textarea,input[type=datetime-local],select{width:100%;border:1px solid #c8dcd4;border-radius:12px;padding:12px;background:white}textarea{min-height:85px}button{cursor:pointer;border:0;border-radius:12px;padding:12px 16px}.primary{background:#076658;color:white;font-weight:700}.voice{width:100%;padding:17px;font-size:19px;margin:12px 0}.secondary{background:#e4f2ec;color:#075447}.danger{background:#ffe9e7;color:#a42e25}.row{display:flex;gap:9px;flex-wrap:wrap}.row>*{flex:1}label{display:block;margin:12px 0 5px;font-weight:600}.hint,.status,footer{color:#58766e;font-size:14px}.status{min-height:20px}.task{border-top:1px solid #e3ede8;padding:14px 0;display:flex;gap:10px;align-items:flex-start}.task>div{flex:1;overflow-wrap:anywhere}.task small{display:block;color:#5b7770;margin-top:5px}.task.done{opacity:.55}.task.done b{text-decoration:line-through}footer{text-align:center;padding:24px 0}#alarm{position:fixed;inset:0;background:#001c17d9;color:white;display:none;place-items:center;padding:24px;z-index:5}#alarm .panel{background:white;color:#143a34;border-radius:22px;padding:28px;max-width:440px;width:100%;text-align:center}#alarm h2{font-size:25px}#alarm .row{margin-top:20px}
 </style></head><body><main class="wrap"><header><h1>✨ PADARYK UŽ MANE</h1><p>Tavo lietuviškai kalbantis kasdienių darbų pagalbininkas 🎤</p><strong id="count"></strong></header>
-<section class="card"><h2>🎤 Pasakyk užduotį</h2><button class="primary voice" id="voice">🎤 Kalbėti lietuviškai</button><p class="hint">Pavyzdys: „Rytoj 10 valandą paskambinti meistrui“ arba „Pirmadienį 9 ryto nuvažiuoti į parduotuvę“.</p><textarea id="task" placeholder="Arba įrašyk užduotį..."></textarea><label for="when">Data ir laikas</label><input type="datetime-local" id="when"><p class="status" id="status"></p><button class="primary" id="add">+ Pridėti užduotį</button></section>
+<section class="card"><h2>🎤 Pasakyk užduotį</h2><button class="primary voice" id="voice">🎤 Kalbėti lietuviškai</button><p class="hint">Pavyzdys: „Rytoj devintą valandą plauti automobilį“. Laiką atpažįsta ir iš žodžių.</p><textarea id="task" placeholder="Arba įrašyk užduotį..."></textarea><label for="when">Data ir laikas</label><input type="datetime-local" id="when"><p class="status" id="status"></p><button class="primary" id="add">+ Pridėti užduotį</button></section>
 <section class="card"><h2>🔊 Balsiniai priminimai</h2><label for="voiceChoice">Pasirink balsą</label><select id="voiceChoice"><option value="">Telefono numatytasis balsas</option></select><div class="row" style="margin-top:12px"><button class="secondary" id="testVoice">▶ Išbandyti balsą</button><button class="secondary" id="permission">🔔 Įjungti pranešimus</button></div><p class="hint">Balsų pasirinkimas priklauso nuo telefone įdiegtų lietuviškų balsų. Šioje internetinėje versijoje balsas patikimai veikia tik kol puslapis atidarytas. Uždarę programėlę galite negauti priminimo – tam dar kursime „Android“ versiją.</p></section>
 <section class="card"><h2>📋 Mano užduotys</h2><div id="tasks"></div><button class="danger" id="clearDone">Ištrinti atliktas</button></section><footer>Užduotys saugomos šiame telefone, šioje naršyklėje. Kitame telefone jos automatiškai neatsiras.</footer></main>
 <div id="alarm"><div class="panel"><h2>🔔 Laikas atlikti užduotį!</h2><p id="alarmText"></p><div class="row"><button class="secondary" id="snooze">Priminti po 10 min.</button><button class="primary" id="dismiss">Supratau</button></div></div></div>
@@ -13,23 +13,43 @@ tasks=tasks.map(t=>({...t,notified:!!t.notified}));let activeId=null, voices=[];
 const save=()=>localStorage.setItem(KEY,JSON.stringify(tasks)),pad=n=>String(n).padStart(2,'0');
 const localValue=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 function parseSpeech(raw){
- const s=raw.toLocaleLowerCase('lt-LT').replace(/[,!?]/g,' '),now=new Date(),d=new Date(now);
+ const s=raw.toLocaleLowerCase('lt-LT').replace(/[,.!?]/g,' ').replace(/\s+/g,' ').trim();
+ const now=new Date(),d=new Date(now);
  let found=false;
- if(/poryt/.test(s)){d.setDate(d.getDate()+2);found=true}
- else if(/rytoj/.test(s)){d.setDate(d.getDate()+1);found=true}
- else if(/šiandien|siandien/.test(s)){found=true}
- else{
+ if(/\bporyt\b/.test(s)){d.setDate(d.getDate()+2);found=true}
+ else if(/\brytoj\b/.test(s)){d.setDate(d.getDate()+1);found=true}
+ else if(/\b(šiandien|siandien)\b/.test(s)){found=true}
+ else {
  const days=['sekmadien','pirmadien','antradien','trečiadien','ketvirtadien','penktadien','šeštadien'];
- const match=days.findIndex(x=>s.includes(x));
- if(match>=0){let diff=(match-d.getDay()+7)%7;if(diff===0)diff=7;d.setDate(d.getDate()+diff);found=true}
+ const weekday=days.findIndex(x=>s.includes(x));
+ if(weekday>=0){let diff=(weekday-d.getDay()+7)%7;if(diff===0)diff=7;d.setDate(d.getDate()+diff);found=true}
  }
- // Priima „18 valandą“, „18 val.“, „18:00“, „18 00“, „9 ryto“ ir „šeštą vakaro“.
- const tm=s.match(/(?:^|\s)(?:apie\s*)?([01]?\d|2[0-3])(?:[:.]([0-5]\d)|\s+([0-5]\d))?\s*(?:val(?:and(?:ą|a|os|ų)?)?\.?|ryto|vakaro|dienos|h)?(?=\s|$|[.,])/i);
- if(!tm||!found)return ''; // Laikas gali būti pasakytas be žodžio „valandą“
- let h=Number(tm[1]),minute=Number(tm[2]||tm[3]||0);
- const context=s.slice(tm.index,tm.index+40);
- if(/vakaro|dienos/.test(context)&&h<12)h+=12;
- d.setHours(h,minute,0,0);return localValue(d);
+ if(!found)return '';
+ const hours={
+ 'pirmą':1,'pirma':1,'antrą':2,'antra':2,'trečią':3,'trecia':3,'ketvirtą':4,'ketvirta':4,
+ 'penktą':5,'penkta':5,'šeštą':6,'sesta':6,'septintą':7,'septinta':7,'aštuntą':8,'astunta':8,
+ 'devintą':9,'devinta':9,'dešimtą':10,'desimta':10,'vienuoliktą':11,'vienuolikta':11,
+ 'dvyliktą':12,'dvylikta':12,'tryliktą':13,'keturioliktą':14,'penkioliktą':15,
+ 'šešioliktą':16,'septynioliktą':17,'aštuonioliktą':18,'devynioliktą':19,'dvidešimtą':20,
+ 'vieną':1,'viena':1,'dvi':2,'tris':3,'trys':3,'keturias':4,'penkias':5,'šešias':6,'septynias':7,
+ 'aštuonias':8,'devynias':9,'dešimt':10,'vienuolika':11,'dvylika':12
+ };
+ const cardinal={vienos:1,dviejų:2,trijų:3,keturių:4,penkių:5,šešių:6,septynių:7,aštuonių:8,devynių:9,dešimties:10,vienuolikos:11,dvylikos:12};
+ let h=null,min=0;
+ const half=s.match(/\bpus[ęe]\s+(vienos|dviejų|trijų|keturių|penkių|šešių|septynių|aštuonių|devynių|dešimties|vienuolikos|dvylikos)\b/);
+ if(half){h=(cardinal[half[1]]+11)%12;min=30}
+ else {
+ const m=s.match(/(?:^|\s)(?:apie\s*)?([01]?\d|2[0-3])(?:[:](\d{2}))?(?=\s|$)/);
+ if(m){h=Number(m[1]);min=Number(m[2]||0)}
+ else {const word=Object.keys(hours).sort((a,b)=>b.length-a.length).find(w=>new RegExp('(?:^|\\s)'+w+'(?=\\s|$)').test(s));if(word)h=hours[word]}
+ }
+ if(h===null||min>59)return '';
+ if(/\b(vakare|vakaro|dienos|po pietų)\b/.test(s)&&h<12)h+=12;
+ if(/\b(ryte|ryto)\b/.test(s)&&h===12)h=0;
+ d.setHours(h,min,0,0);
+ // Jei šiandienos laikas jau praėjo, nekurti praeities priminimo.
+ if(/\b(šiandien|siandien)\b/.test(s)&&d.getTime()<now.getTime())return '';
+ return localValue(d);
 }
 function render(){
  $('count').textContent=tasks.filter(t=>!t.done).length+' laukiančių užduočių';
@@ -51,7 +71,7 @@ if(!$('when').value)fillFromText();
 tasks.unshift({id:String(Date.now())+Math.random(),text,when:$('when').value,done:false,notified:false});save();render();$('task').value='';$('when').value='';$('status').textContent='✅ Užduotis išsaugota.'};
 $('clearDone').onclick=()=>{tasks=tasks.filter(t=>!t.done);save();render()};
 const Rec=window.SpeechRecognition||window.webkitSpeechRecognition;
-if(Rec){$('voice').onclick=()=>{const r=new Rec();r.lang='lt-LT';r.onstart=()=>{$('voice').textContent='🎙️ Klausau...'};r.onend=()=>{$('voice').textContent='🎤 Kalbėti lietuviškai'};r.onresult=e=>{$('task').value=e.results[0][0].transcript;fillFromText();if(!$('when').value)$('status').textContent='Atpažinau tekstą, bet datą ir laiką patikrink ranka.'};r.onerror=e=>{$('status').textContent='Mikrofono klaida: '+e.error};try{r.start()}catch{}}}else{$('voice').disabled=true;$('voice').textContent='Ši naršyklė balso neatpažįsta'}
+if(Rec){$('voice').onclick=()=>{const r=new Rec();r.lang='lt-LT';r.onstart=()=>{$('voice').textContent='🎙️ Klausau...'};r.onend=()=>{$('voice').textContent='🎤 Kalbėti lietuviškai'};r.onresult=e=>{$('task').value=e.results[0][0].transcript;fillFromText();if(!$('when').value)$('status').textContent='Datos ir laiko neatpažinau – patikrink ranka.'};r.onerror=e=>{$('status').textContent='Mikrofono klaida: '+e.error};try{r.start()}catch{}}}else{$('voice').disabled=true;$('voice').textContent='Ši naršyklė balso neatpažįsta'}
 function loadVoices(){
  if(!('speechSynthesis' in window))return;
  voices=speechSynthesis.getVoices();const select=$('voiceChoice'),old=select.value||localStorage.getItem(PREF)||'';
